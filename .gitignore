@@ -1,0 +1,25 @@
+# Data files (too large for git, fetched separately)
+*.csv
+*.xlsx
+*.ogg
+
+# Model outputs / runs
+outputs/
+runs/
+wandb/
+checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

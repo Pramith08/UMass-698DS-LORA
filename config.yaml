@@ -1,0 +1,45 @@
+# LoRA Cybersecurity Judge — config for Phases 1-4
+# Single source of truth for paths, model, hyperparameters.
+
+# Base model — Geetanjali's choice (2026-05-09): small Llama, fallback Phi-3.5-mini.
+base_model: "unsloth/Llama-3.2-3B-Instruct"
+# fallback: "unsloth/Phi-3.5-mini-instruct"
+
+seed: 42
+
+paths:
+  # Relative to the directory you run the scripts from (i.e. code/LoRA/).
+  csv: "../../Final/train_5k_candidates_labelled.csv"
+  output_dir: "outputs"
+  train_jsonl: "outputs/train.jsonl"
+  test_jsonl: "outputs/test.jsonl"
+  adapter_dir: "outputs/adapter"
+
+split:
+  # Per Geetanjali 2026-05-09: 4.5k train, 500 test.
+  train_size: 4500
+  test_size: 500
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  target_modules: "all-linear"
+  bias: "none"
+
+training:
+  max_seq_length: 4096
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4   # effective batch size = 8
+  learning_rate: 2.0e-4
+  num_train_epochs: 2
+  warmup_steps: 50
+  logging_steps: 10
+  save_steps: 500
+  bf16: true
+  optim: "adamw_8bit"
+
+eval:
+  # Greedy decoding for the test split. Output should be one of 6 fixed strings.
+  max_new_tokens: 16
+  do_sample: false
