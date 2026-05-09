@@ -47,15 +47,6 @@ All knobs live in `config.yaml`. Key fields:
 - `lora.*` — LoRA hyperparameters (r=16, alpha=16, dropout=0).
 - `training.*` — SFT hyperparameters.
 
-## Local smoke test (no GPU)
-
-To validate the data-prep pipeline on Pramith's Windows box:
-
-```bash
-python prep_data.py
-head -1 outputs/train.jsonl | python -m json.tool
-```
-
 `train.py` and `eval_test.py` require a CUDA GPU (Varshini's A100 on Unity).
 
 ## Notes for Varshini (A100 on Unity)
