@@ -1,0 +1,44 @@
+# LoRA Cybersecurity Judge — 8B variant config
+# Mirrors config.yaml but trains Llama-3.1-8B-Instruct and writes artifacts
+# to outputs/finetuned-8b/ (so it doesn't collide with the 3B run).
+
+# Per Geetanjali (2026-05-09): try the 7B-class model if 3B trained fast.
+# Llama-3.x doesn't ship a 7B Instruct, so 8B is the closest equivalent.
+base_model: "unsloth/Meta-Llama-3.1-8B-Instruct"
+
+seed: 42
+
+paths:
+  csv: "../../Final/train_5k_candidates_labelled.csv"
+  output_dir: "outputs"
+  train_jsonl: "outputs/train.jsonl"   # shared with 3B run; data is model-agnostic
+  test_jsonl: "outputs/test.jsonl"
+  # All 8B artifacts live under outputs/8b/, fully separate from the 3B run.
+  adapter_dir: "outputs/8b/finetuned/adapter"
+
+split:
+  train_size: 4500
+  test_size: 500
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.0
+  target_modules: "all-linear"
+  bias: "none"
+
+training:
+  max_seq_length: 4096
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4   # effective batch size = 8
+  learning_rate: 2.0e-4
+  num_train_epochs: 2
+  warmup_steps: 50
+  logging_steps: 10
+  save_steps: 500
+  bf16: true
+  optim: "adamw_8bit"
+
+eval:
+  max_new_tokens: 64
+  do_sample: false

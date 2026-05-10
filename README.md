@@ -26,29 +26,49 @@ Unsloth installation may need to be adjusted for your CUDA version — see https
 # 1. Generate train.jsonl + test.jsonl (runs anywhere, no GPU needed)
 python prep_data.py
 
-# 2. Fine-tune on A100 (Varshini)
+# --- 3B variant (default config.yaml) ---
+# 2a. Fine-tune Llama-3.2-3B
 python train.py
 
-# 3. Evaluate the fine-tuned LoRA adapter on the 500 test split
+# 3a. Evaluate the fine-tuned 3B adapter
 python eval_test.py
 
-# 4. Evaluate the base (un-fine-tuned) model on the same test split
-#    for the fine-tuning lift comparison
+# 4a. Evaluate the un-fine-tuned 3B base model (lift comparison)
 python eval_test.py --model unsloth/Llama-3.2-3B-Instruct
+
+# --- 8B variant (config_8b.yaml) ---
+# 2b. Fine-tune Llama-3.1-8B
+python train.py --config config_8b.yaml
+
+# 3b. Evaluate the fine-tuned 8B adapter
+python eval_test.py --config config_8b.yaml
+
+# 4b. Evaluate the un-fine-tuned 8B base model (lift comparison)
+python eval_test.py --config config_8b.yaml --model unsloth/Meta-Llama-3.1-8B-Instruct
 ```
 
-Artifacts land in `outputs/` with per-model subfolders so the fine-tuned and base runs don't collide:
+Artifacts land in `outputs/` with per-model subfolders so the runs don't collide:
 
 ```
 outputs/
-├── train.jsonl                  # formatted SFT training data
+├── train.jsonl                  # formatted SFT training data (model-agnostic)
 ├── test.jsonl                   # formatted SFT test data
-├── finetuned/
+├── finetuned/                   # 3B run (config.yaml) — flat layout
 │   ├── adapter/                 # LoRA adapter weights + tokenizer
-│   └── metrics.json             # fine-tuned model metrics
-└── base/
-    └── metrics.json             # base model metrics (for the lift comparison)
+│   └── metrics.json             # fine-tuned 3B metrics
+├── base/                        # 3B base baseline
+│   └── metrics.json
+└── 8b/                          # 8B run (config_8b.yaml) — fully nested
+    ├── finetuned/
+    │   ├── adapter/
+    │   └── metrics.json
+    └── base/
+        └── metrics.json
 ```
+
+`eval_test.py` derives the right output path automatically from the chosen
+config's `paths.adapter_dir` (replacing the `finetuned` segment with `base` for
+the base eval). You don't need to pass `--out` unless overriding the convention.
 
 ## Configuration
 

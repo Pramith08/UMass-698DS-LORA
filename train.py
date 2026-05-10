@@ -1,8 +1,16 @@
 """Phase 3 — LoRA fine-tune on the 4.5k training split using Unsloth.
 
-Run after `python prep_data.py`. Saves the LoRA adapter to outputs/adapter/.
+Run after `python prep_data.py`. Saves the LoRA adapter to the path
+specified in the chosen config's `paths.adapter_dir`.
+
+    # Default — train Llama-3.2-3B with config.yaml
+    python train.py
+
+    # Train the 8B variant with config_8b.yaml (lands in outputs/finetuned-8b/)
+    python train.py --config config_8b.yaml
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -20,8 +28,19 @@ def load_jsonl(path: str) -> list:
         return [json.loads(line) for line in f]
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--config",
+        default="config.yaml",
+        help="Path to the YAML config file (default: config.yaml).",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
-    cfg = load_config()
+    args = parse_args()
+    cfg = load_config(args.config)
 
     from unsloth import FastLanguageModel
     from datasets import Dataset

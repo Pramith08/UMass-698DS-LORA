@@ -3,17 +3,24 @@
 Compares a model's predicted rankings against the GPT-OSS labels and reports
 parse rate, exact-match accuracy, top-1 accuracy, and pairwise agreement.
 
-Default behavior: evaluates the fine-tuned LoRA adapter (config's adapter_dir)
-and writes outputs/finetuned/metrics.json.
+Default behavior: evaluates the fine-tuned LoRA adapter at
+config's paths.adapter_dir, writing metrics next to it.
 
-When --model is passed the default output is auto-routed to
-outputs/base/metrics.json so the fine-tuned metrics are never overwritten.
+When --model is passed the default output is auto-routed to the sibling
+"base..." folder (e.g. finetuned/ -> base/, finetuned-8b/ -> base-8b/) so
+the fine-tuned metrics are never overwritten.
 
-    # Evaluate the fine-tuned adapter
+    # Evaluate the 3B fine-tuned adapter (config.yaml)
     python eval_test.py
 
-    # Evaluate the un-fine-tuned base model (Geetanjali's request, 2026-05-09)
+    # Evaluate the 3B base model on the same test set
     python eval_test.py --model unsloth/Llama-3.2-3B-Instruct
+
+    # Evaluate the 8B fine-tuned adapter (config_8b.yaml)
+    python eval_test.py --config config_8b.yaml
+
+    # Evaluate the 8B base model
+    python eval_test.py --config config_8b.yaml --model unsloth/Meta-Llama-3.1-8B-Instruct
 """
 
 import argparse
@@ -68,6 +75,11 @@ def pairwise_agreement(pred: str, gt: str) -> float:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
+        "--config",
+        default="config.yaml",
+        help="Path to the YAML config file (default: config.yaml).",
+    )
+    parser.add_argument(
         "--model",
         default=None,
         help="Model to evaluate (local path or HuggingFace id). Defaults to config's "
@@ -77,29 +89,54 @@ def parse_args() -> argparse.Namespace:
         "--out",
         default=None,
         help="Output path inside outputs/ (e.g. 'finetuned/metrics.json'). "
-             "If omitted, defaults to 'finetuned/metrics.json' for the adapter run "
-             "or 'base/metrics.json' when --model is passed.",
+             "If omitted, derived from config's adapter_dir parent: "
+             "'<finetuned-dir>/metrics.json' for the adapter run, "
+             "or '<base-dir>/metrics.json' (with finetuned->base) when --model is passed.",
     )
     return parser.parse_args()
 
 
+def derive_default_out(adapter_dir: str, evaluating_base: bool) -> str:
+    """Derive the default metrics output path from the adapter_dir.
+
+    The fine-tuned metrics live next to the adapter folder. The base metrics
+    live in a sibling folder where the 'finetuned' segment is renamed to 'base'.
+
+    Examples:
+      adapter_dir='outputs/finetuned/adapter'         (3B, flat)
+        finetuned -> 'outputs/finetuned/metrics.json'
+        base      -> 'outputs/base/metrics.json'
+
+      adapter_dir='outputs/8b/finetuned/adapter'      (8B, nested)
+        finetuned -> 'outputs/8b/finetuned/metrics.json'
+        base      -> 'outputs/8b/base/metrics.json'
+    """
+    finetuned_dir = Path(adapter_dir).parent  # e.g. outputs/finetuned or outputs/8b/finetuned
+    if evaluating_base:
+        base_name = finetuned_dir.name.replace("finetuned", "base", 1)
+        base_dir = finetuned_dir.parent / base_name
+        return str(base_dir / "metrics.json")
+    return str(finetuned_dir / "metrics.json")
+
+
 def main() -> int:
     args = parse_args()
-    cfg = load_config()
+    cfg = load_config(args.config)
 
     test_path = cfg["paths"]["test_jsonl"]
     if not Path(test_path).exists():
         print(f"ERROR: {test_path} not found. Run `python prep_data.py` first.", file=sys.stderr)
         return 1
 
+    adapter_dir = cfg["paths"]["adapter_dir"]
     if args.model:
         model_path = args.model
         model_label = f"base / {args.model}"
-        default_out = "base/metrics.json"
+        default_out = derive_default_out(adapter_dir, evaluating_base=True)
     else:
-        model_path = cfg["paths"]["adapter_dir"]
+        model_path = adapter_dir
         model_label = f"fine-tuned / {model_path}"
-        default_out = "finetuned/metrics.json"
+        default_out = derive_default_out(adapter_dir, evaluating_base=False)
         if not Path(model_path).exists():
             print(f"ERROR: adapter dir {model_path} not found. Run `python train.py` first, "
                   f"or pass --model <hf-id> to evaluate a remote model.", file=sys.stderr)
@@ -191,7 +228,12 @@ def main() -> int:
         "first_5_failures": failures[:5],
     }
 
-    out_path = Path(cfg["paths"]["output_dir"]) / out_relpath
+    # `out_relpath` from --out is interpreted relative to output_dir;
+    # `out_relpath` from derive_default_out already starts with output_dir.
+    if args.out:
+        out_path = Path(cfg["paths"]["output_dir"]) / out_relpath
+    else:
+        out_path = Path(out_relpath)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
