@@ -40,6 +40,9 @@ training:
   optim: "adamw_8bit"
 
 eval:
-  # Greedy decoding for the test split. Output should be one of 6 fixed strings.
-  max_new_tokens: 16
+  # Greedy decoding for the test split.
+  # max_new_tokens=64 gives the un-fine-tuned base model room to emit a parseable
+  # ranking even if it adds a short preamble. The fine-tuned model stops at EOS
+  # well before this limit so its results are unchanged.
+  max_new_tokens: 64
   do_sample: false

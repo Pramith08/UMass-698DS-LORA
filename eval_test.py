@@ -1,12 +1,22 @@
-"""Phase 4 — sanity eval on the 500-row held-out test split.
+"""Phase 4 — eval on the 500-row held-out test split.
 
-Compares the fine-tuned model's predicted ranking against the GPT-OSS label for each
-test row, and reports parse rate, exact-match accuracy, top-1 accuracy, and
-per-position pairwise agreement.
+Compares a model's predicted rankings against the GPT-OSS labels and reports
+parse rate, exact-match accuracy, top-1 accuracy, and pairwise agreement.
 
-Run after `python train.py`. Writes outputs/metrics_test.json.
+Default behavior: evaluates the fine-tuned LoRA adapter (config's adapter_dir)
+and writes outputs/metrics_test.json.
+
+Override the model and output filename to evaluate the base model (or any
+other model) on the same test set:
+
+    # Default — evaluate the fine-tuned adapter
+    python eval_test.py
+
+    # Evaluate the un-fine-tuned base model (Geetanjali's request, 2026-05-09)
+    python eval_test.py --model unsloth/Llama-3.2-3B-Instruct --out metrics_base.json
 """
 
+import argparse
 import json
 import re
 import sys
@@ -55,23 +65,48 @@ def pairwise_agreement(pred: str, gt: str) -> float:
     return agree / len(pairs)
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model to evaluate (local path or HuggingFace id). Defaults to config's "
+             "paths.adapter_dir (the fine-tuned LoRA adapter).",
+    )
+    parser.add_argument(
+        "--out",
+        default="metrics_test.json",
+        help="Output filename inside outputs/ (default: metrics_test.json). "
+             "Use e.g. metrics_base.json when evaluating the base model.",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = parse_args()
     cfg = load_config()
 
-    adapter_dir = cfg["paths"]["adapter_dir"]
     test_path = cfg["paths"]["test_jsonl"]
-    if not Path(adapter_dir).exists():
-        print(f"ERROR: adapter dir {adapter_dir} not found. Run `python train.py` first.", file=sys.stderr)
-        return 1
     if not Path(test_path).exists():
         print(f"ERROR: {test_path} not found. Run `python prep_data.py` first.", file=sys.stderr)
         return 1
 
+    if args.model:
+        model_path = args.model
+        model_label = f"base / {args.model}"
+    else:
+        model_path = cfg["paths"]["adapter_dir"]
+        model_label = f"fine-tuned / {model_path}"
+        if not Path(model_path).exists():
+            print(f"ERROR: adapter dir {model_path} not found. Run `python train.py` first, "
+                  f"or pass --model <hf-id> to evaluate a remote model.", file=sys.stderr)
+            return 1
+
     from unsloth import FastLanguageModel
 
-    print(f"Loading fine-tuned model from {adapter_dir}")
+    print(f"Loading model: {model_label}")
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=adapter_dir,
+        model_name=model_path,
         max_seq_length=cfg["training"]["max_seq_length"],
         load_in_4bit=True,
     )
@@ -136,6 +171,8 @@ def main() -> int:
         pairwise_sum += pairwise_agreement(pred, gt)
 
     metrics = {
+        "model": model_path,
+        "model_label": model_label,
         "n_total": n_total,
         "n_parsed": n_parsed,
         "parse_rate": n_parsed / n_total if n_total else 0.0,
@@ -149,7 +186,7 @@ def main() -> int:
         "first_5_failures": failures[:5],
     }
 
-    out_path = Path(cfg["paths"]["output_dir"]) / "metrics_test.json"
+    out_path = Path(cfg["paths"]["output_dir"]) / args.out
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)

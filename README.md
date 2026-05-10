@@ -29,14 +29,19 @@ python prep_data.py
 # 2. Fine-tune on A100 (Varshini)
 python train.py
 
-# 3. Evaluate on the 500 test split
+# 3. Evaluate the fine-tuned LoRA adapter on the 500 test split
 python eval_test.py
+
+# 4. Evaluate the base (un-fine-tuned) model on the same test split
+#    for the fine-tuning lift comparison
+python eval_test.py --model unsloth/Llama-3.2-3B-Instruct --out metrics_base.json
 ```
 
 Artifacts land in `outputs/`:
 - `train.jsonl`, `test.jsonl` — formatted SFT data
 - `adapter/` — LoRA adapter weights + tokenizer
-- `metrics_test.json` — Phase-4 metrics
+- `metrics_test.json` — fine-tuned model metrics
+- `metrics_base.json` — base model metrics (for the lift comparison)
 
 ## Configuration
 
