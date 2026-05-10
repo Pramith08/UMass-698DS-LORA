@@ -4,16 +4,16 @@ Compares a model's predicted rankings against the GPT-OSS labels and reports
 parse rate, exact-match accuracy, top-1 accuracy, and pairwise agreement.
 
 Default behavior: evaluates the fine-tuned LoRA adapter (config's adapter_dir)
-and writes outputs/metrics_test.json.
+and writes outputs/finetuned/metrics.json.
 
-Override the model and output filename to evaluate the base model (or any
-other model) on the same test set:
+When --model is passed the default output is auto-routed to
+outputs/base/metrics.json so the fine-tuned metrics are never overwritten.
 
-    # Default — evaluate the fine-tuned adapter
+    # Evaluate the fine-tuned adapter
     python eval_test.py
 
     # Evaluate the un-fine-tuned base model (Geetanjali's request, 2026-05-09)
-    python eval_test.py --model unsloth/Llama-3.2-3B-Instruct --out metrics_base.json
+    python eval_test.py --model unsloth/Llama-3.2-3B-Instruct
 """
 
 import argparse
@@ -75,9 +75,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--out",
-        default="metrics_test.json",
-        help="Output filename inside outputs/ (default: metrics_test.json). "
-             "Use e.g. metrics_base.json when evaluating the base model.",
+        default=None,
+        help="Output path inside outputs/ (e.g. 'finetuned/metrics.json'). "
+             "If omitted, defaults to 'finetuned/metrics.json' for the adapter run "
+             "or 'base/metrics.json' when --model is passed.",
     )
     return parser.parse_args()
 
@@ -94,13 +95,17 @@ def main() -> int:
     if args.model:
         model_path = args.model
         model_label = f"base / {args.model}"
+        default_out = "base/metrics.json"
     else:
         model_path = cfg["paths"]["adapter_dir"]
         model_label = f"fine-tuned / {model_path}"
+        default_out = "finetuned/metrics.json"
         if not Path(model_path).exists():
             print(f"ERROR: adapter dir {model_path} not found. Run `python train.py` first, "
                   f"or pass --model <hf-id> to evaluate a remote model.", file=sys.stderr)
             return 1
+
+    out_relpath = args.out if args.out else default_out
 
     from unsloth import FastLanguageModel
 
@@ -186,7 +191,7 @@ def main() -> int:
         "first_5_failures": failures[:5],
     }
 
-    out_path = Path(cfg["paths"]["output_dir"]) / args.out
+    out_path = Path(cfg["paths"]["output_dir"]) / out_relpath
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)

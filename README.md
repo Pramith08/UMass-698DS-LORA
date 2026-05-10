@@ -34,14 +34,21 @@ python eval_test.py
 
 # 4. Evaluate the base (un-fine-tuned) model on the same test split
 #    for the fine-tuning lift comparison
-python eval_test.py --model unsloth/Llama-3.2-3B-Instruct --out metrics_base.json
+python eval_test.py --model unsloth/Llama-3.2-3B-Instruct
 ```
 
-Artifacts land in `outputs/`:
-- `train.jsonl`, `test.jsonl` — formatted SFT data
-- `adapter/` — LoRA adapter weights + tokenizer
-- `metrics_test.json` — fine-tuned model metrics
-- `metrics_base.json` — base model metrics (for the lift comparison)
+Artifacts land in `outputs/` with per-model subfolders so the fine-tuned and base runs don't collide:
+
+```
+outputs/
+├── train.jsonl                  # formatted SFT training data
+├── test.jsonl                   # formatted SFT test data
+├── finetuned/
+│   ├── adapter/                 # LoRA adapter weights + tokenizer
+│   └── metrics.json             # fine-tuned model metrics
+└── base/
+    └── metrics.json             # base model metrics (for the lift comparison)
+```
 
 ## Configuration
 

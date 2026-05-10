@@ -13,7 +13,9 @@ paths:
   output_dir: "outputs"
   train_jsonl: "outputs/train.jsonl"
   test_jsonl: "outputs/test.jsonl"
-  adapter_dir: "outputs/adapter"
+  # Adapter and per-model metrics live under outputs/<model>/ subfolders so
+  # the fine-tuned and base-model artifacts don't collide.
+  adapter_dir: "outputs/finetuned/adapter"
 
 split:
   # Per Geetanjali 2026-05-09: 4.5k train, 500 test.
