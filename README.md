@@ -70,6 +70,13 @@ outputs/
 config's `paths.adapter_dir` (replacing the `finetuned` segment with `base` for
 the base eval). You don't need to pass `--out` unless overriding the convention.
 
+## Local laptop alternative for the base-model eval (no A100 needed)
+
+If you don't have cluster access yet but want the base-model baseline numbers
+on the same 500 test examples, see `local_eval/README.md`. It uses Ollama on
+Windows + your local GPU (e.g. RTX 5070), takes 5-15 min, and writes to the
+same `outputs/base/metrics.json` path.
+
 ## Configuration
 
 All knobs live in `config.yaml`. Key fields:
