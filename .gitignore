@@ -23,3 +23,6 @@ env/
 .idea/
 *.swp
 .DS_Store
+
+# Pramith's local laptop tooling — not part of the team-shared workflow
+local_eval/
